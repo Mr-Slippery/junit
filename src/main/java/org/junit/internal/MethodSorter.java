@@ -1,10 +1,23 @@
 package org.junit.internal;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 
 import org.junit.FixMethodOrder;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.XMLReader;
 
 public class MethodSorter {
     /**
@@ -34,6 +47,54 @@ public class MethodSorter {
         }
     };
 
+    
+    private static Map<String, Integer> processXML(String fileName) {
+            SAXParserFactory spf = SAXParserFactory.newInstance();
+            spf.setNamespaceAware(true);
+            SAXParser saxParser;
+            try {
+                saxParser = spf.newSAXParser();
+                XMLReader xmlReader = saxParser.getXMLReader();
+                xmlReader.setContentHandler(new SaxLocalNameCount());
+                xmlReader.parse(convertToFileURL(fileName));
+                return ((SaxLocalNameCount)xmlReader.getContentHandler()).getTags();
+            } catch (ParserConfigurationException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (SAXException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            return null;
+    }
+    
+    private static String convertToFileURL(String fileName) {
+        String path = new File(fileName).getAbsolutePath();
+        if (File.separatorChar != '/') {
+            path = path.replace(File.separatorChar, '/');
+        }
+
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        return "file:" + path;
+    }
+
+    private static Comparator<Method> mapBasedComparator(final Map<String, Integer> methodMap) {
+        return new Comparator<Method>() {
+            public int compare(Method o1, Method o2) {
+                Integer int1 = methodMap.get(o1.getName());
+                Integer int2 = methodMap.get(o2.getName());
+                if (int1 != null && int2 != null) {
+                    return int1.compareTo(int2);
+                }
+                return 0;
+            }            
+        };
+    }
     /**
      * Gets declared methods of a class in a predictable order, unless @FixMethodOrder(MethodSorters.JVM) is specified.
      *
@@ -49,8 +110,20 @@ public class MethodSorter {
      *      (non-)bug #7023180</a>
      */
     public static Method[] getDeclaredMethods(Class<?> clazz) {
-        Comparator<Method> comparator = getSorter(clazz.getAnnotation(FixMethodOrder.class));
-
+        FixMethodOrder fixMethodOrder = clazz.getAnnotation(FixMethodOrder.class);
+        Comparator<Method> comparator = null;
+        if (fixMethodOrder != null) {
+            comparator = getSorter(fixMethodOrder); 
+        } else {
+            String testReport = System.getProperty("testReport");
+            if (testReport != null) {
+                comparator = mapBasedComparator(processXML(testReport));
+            }
+            if (comparator == null) {
+                comparator = getSorter(fixMethodOrder);             
+            }
+        }
+         
         Method[] methods = clazz.getDeclaredMethods();
         if (comparator != null) {
             Arrays.sort(methods, comparator);
