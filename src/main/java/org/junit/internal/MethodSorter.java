@@ -51,9 +51,9 @@ public class MethodSorter {
             try {
                 saxParser = spf.newSAXParser();
                 XMLReader xmlReader = saxParser.getXMLReader();
-                xmlReader.setContentHandler(new SaxLocalNameCount());
+                xmlReader.setContentHandler(new SaxTestMethodIndex());
                 xmlReader.parse(convertToFileURL(fileName));
-                return ((SaxLocalNameCount)xmlReader.getContentHandler()).getTags();
+                return ((SaxTestMethodIndex)xmlReader.getContentHandler()).getTags();
             } catch (ParserConfigurationException e) {
                 e.printStackTrace();
             } catch (SAXException e) {
