@@ -54,13 +54,10 @@ public class MethodSorter {
                 xmlReader.setContentHandler(new SaxTestMethodIndex());
                 xmlReader.parse(convertToFileURL(fileName));
                 return ((SaxTestMethodIndex)xmlReader.getContentHandler()).getTags();
-            } catch (ParserConfigurationException e) {
-                e.printStackTrace();
-            } catch (SAXException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
+
             return null;
     }
     
@@ -77,15 +74,18 @@ public class MethodSorter {
     }
 
     private static Comparator<Method> mapBasedComparator(final Class<?> clazz, final Map<String, Integer> methodMap) {
-        final String className = clazz.getCanonicalName();
+        final String className = clazz.getCanonicalName() + ".";
         return new Comparator<Method>() {
             public int compare(Method o1, Method o2) {
-                Integer int1 = methodMap.get(className + "." + o1.getName());
-                Integer int2 = methodMap.get(className + "." + o2.getName());
-                if (int1 != null && int2 != null) {
-                    return int1.compareTo(int2);
+                Integer int1 = methodMap.get(className + o1.getName());
+                if (int1 == null) {
+                    return 0;
                 }
-                return 0;
+                Integer int2 = methodMap.get(className + o2.getName());
+                if (int2 == null) {
+                    return 0;
+                }
+                return int1.compareTo(int2);
             }            
         };
     }
